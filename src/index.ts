@@ -15,7 +15,25 @@ import type { AppBindings, AppVariables } from "./types/app";
 const app = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
 app.get("/health", (c) => {
-  return c.json({ ok: true, service: "contributions-api" });
+  // TODO: Remove temporary environment diagnostics from /health after deploy troubleshooting is complete.
+  const publishableKey = c.env.CLERK_PUBLISHABLE_KEY ?? "";
+
+  return c.json({
+    ok: true,
+    service: "contributions-api",
+    env: {
+      APP_ENV: c.env.APP_ENV ?? null,
+      TZ_BUSINESS: c.env.TZ_BUSINESS ?? null,
+      CORS_ALLOWED_ORIGINS: c.env.CORS_ALLOWED_ORIGINS ?? null,
+      RATE_LIMIT_MAX: c.env.RATE_LIMIT_MAX ?? null,
+      RATE_LIMIT_WINDOW_MS: c.env.RATE_LIMIT_WINDOW_MS ?? null,
+      hasClerkSecretKey: Boolean(c.env.CLERK_SECRET_KEY),
+      hasClerkJwtKey: Boolean(c.env.CLERK_JWT_KEY),
+      hasClerkPublishableKey: Boolean(publishableKey),
+      clerkPublishableKeyPreview: publishableKey ? `${publishableKey.slice(0, 12)}...` : null,
+      clerkPublishableKeyLength: publishableKey.length
+    }
+  });
 });
 
 app.use("/api/*", strictCors);

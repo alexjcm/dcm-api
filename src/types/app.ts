@@ -4,6 +4,7 @@ import type { AppRole } from "../config/runtime";
 
 export type AppBindings = {
   CONTRIBUTIONS_DB_BINDING: D1Database;
+  TZ_BUSINESS?: string;
   CLERK_SECRET_KEY: string;
   CLERK_PUBLISHABLE_KEY: string;
   CLERK_JWT_KEY?: string;
