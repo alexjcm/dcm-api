@@ -10,12 +10,12 @@
     "dev": "wrangler dev src/index.ts",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
-    "db:migrate:local": "wrangler d1 migrations apply CONTRIBUTIONS_DB --local",
-    "db:migrate:remote": "wrangler d1 migrations apply CONTRIBUTIONS_DB --remote",
-    "db:create": "wrangler d1 create contributions-db-development --binding CONTRIBUTIONS_DB --update-config",
+    "db:migrate:local": "wrangler d1 migrations apply CONTRIBUTIONS_DB_BINDING --local",
+    "db:migrate:remote": "wrangler d1 migrations apply CONTRIBUTIONS_DB_BINDING --remote",
+    "db:create": "wrangler d1 create contributions-db-development --binding CONTRIBUTIONS_DB_BINDING --update-config",
     "phase2:build-sql": "node scripts/phase2/build-historical-sql.mjs",
-    "phase2:load:local": "wrangler d1 execute CONTRIBUTIONS_DB --local --file data/historical/sql/phase2-historical-import.sql",
-    "phase2:load:remote": "wrangler d1 execute CONTRIBUTIONS_DB --remote --file data/historical/sql/phase2-historical-import.sql"
+    "phase2:load:local": "wrangler d1 execute CONTRIBUTIONS_DB_BINDING --local --file data/historical/sql/phase2-historical-import.sql",
+    "phase2:load:remote": "wrangler d1 execute CONTRIBUTIONS_DB_BINDING --remote --file data/historical/sql/phase2-historical-import.sql"
   },
   "dependencies": {
     "@hono/clerk-auth": "^3.1.1",

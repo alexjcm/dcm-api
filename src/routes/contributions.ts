@@ -89,7 +89,7 @@ const ensureActiveContributor = async (db: ReturnType<typeof createDb>, contribu
 export const contributionsRoute: AppRoute = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
 contributionsRoute.get("/", zValidator("query", contributionsQuerySchema, zodValidationHook), async (c) => {
-  const db = createDb(c.env.CONTRIBUTIONS_DB);
+  const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);
   const query = c.req.valid("query");
 
   const year = query.year ? Number(query.year) : getCurrentBusinessYear();
@@ -143,7 +143,7 @@ contributionsRoute.get("/", zValidator("query", contributionsQuerySchema, zodVal
 });
 
 contributionsRoute.post("/", requireRole("admin", "superadmin"), zValidator("json", contributionCreateSchema, zodValidationHook), async (c) => {
-  const db = createDb(c.env.CONTRIBUTIONS_DB);
+  const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);
   const auth = c.get("auth");
   const payload = c.req.valid("json");
 
@@ -202,7 +202,7 @@ contributionsRoute.put(
   zValidator("param", idParamSchema, zodValidationHook),
   zValidator("json", contributionUpdateSchema, zodValidationHook),
   async (c) => {
-    const db = createDb(c.env.CONTRIBUTIONS_DB);
+    const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);
     const auth = c.get("auth");
     const { id } = c.req.valid("param");
     const payload = c.req.valid("json");
@@ -286,7 +286,7 @@ contributionsRoute.put(
 );
 
 contributionsRoute.delete("/:id", requireRole("admin", "superadmin"), zValidator("param", idParamSchema, zodValidationHook), async (c) => {
-  const db = createDb(c.env.CONTRIBUTIONS_DB);
+  const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);
   const auth = c.get("auth");
   const { id } = c.req.valid("param");
   const contributionId = Number(id);

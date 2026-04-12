@@ -10,7 +10,7 @@ RATE_LIMIT_WINDOW_MS = "60000"
 APP_ENV = "development"
 
 [[d1_databases]]
-binding = "CONTRIBUTIONS_DB"
+binding = "CONTRIBUTIONS_DB_BINDING"
 database_name = "contributions-db-development"
 database_id = "fe72a0a4-76d0-466f-bfb1-2fc89e40977e"
 migrations_dir = "migrations"

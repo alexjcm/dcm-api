@@ -25,7 +25,7 @@ type MonthlyStats = {
 export const summaryRoute: AppRoute = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
 summaryRoute.get("/", zValidator("query", summaryQuerySchema, zodValidationHook), async (c) => {
-  const db = createDb(c.env.CONTRIBUTIONS_DB);
+  const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);
   const query = c.req.valid("query");
 
   const year = query.year ? Number(query.year) : getCurrentBusinessYear();

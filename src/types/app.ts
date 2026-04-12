@@ -3,7 +3,7 @@ import type { D1Database } from "@cloudflare/workers-types";
 import type { AppRole } from "../config/runtime";
 
 export type AppBindings = {
-  CONTRIBUTIONS_DB: D1Database;
+  CONTRIBUTIONS_DB_BINDING: D1Database;
   CLERK_SECRET_KEY: string;
   CLERK_PUBLISHABLE_KEY: string;
   CLERK_JWT_KEY?: string;

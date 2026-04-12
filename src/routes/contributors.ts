@@ -37,7 +37,7 @@ const idParamSchema = z.object({
 export const contributorsRoute: AppRoute = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
 contributorsRoute.get("/", zValidator("query", contributorsQuerySchema, zodValidationHook), async (c) => {
-  const db = createDb(c.env.CONTRIBUTIONS_DB);
+  const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);
   const query = c.req.valid("query");
   const statusFilter = query.status ?? "active";
 
@@ -51,7 +51,7 @@ contributorsRoute.get("/", zValidator("query", contributorsQuerySchema, zodValid
 });
 
 contributorsRoute.post("/", requireRole("superadmin"), zValidator("json", contributorCreateSchema, zodValidationHook), async (c) => {
-  const db = createDb(c.env.CONTRIBUTIONS_DB);
+  const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);
   const auth = c.get("auth");
   const payload = c.req.valid("json");
   const now = nowIso();
@@ -86,7 +86,7 @@ contributorsRoute.put(
   zValidator("param", idParamSchema, zodValidationHook),
   zValidator("json", contributorUpdateSchema, zodValidationHook),
   async (c) => {
-    const db = createDb(c.env.CONTRIBUTIONS_DB);
+    const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);
     const auth = c.get("auth");
     const { id } = c.req.valid("param");
     const payload = c.req.valid("json");
@@ -139,7 +139,7 @@ contributorsRoute.put(
 );
 
 contributorsRoute.delete("/:id", requireRole("superadmin"), zValidator("param", idParamSchema, zodValidationHook), async (c) => {
-  const db = createDb(c.env.CONTRIBUTIONS_DB);
+  const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);
   const auth = c.get("auth");
   const { id } = c.req.valid("param");
   const contributorId = Number(id);

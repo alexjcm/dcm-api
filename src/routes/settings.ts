@@ -17,7 +17,7 @@ type AppRoute = Hono<{ Bindings: AppBindings; Variables: AppVariables }>;
 export const settingsRoute: AppRoute = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
 settingsRoute.get("/", async (c) => {
-  const db = createDb(c.env.CONTRIBUTIONS_DB);
+  const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);
 
   const rows = await db.select().from(settings).orderBy(asc(settings.key));
 
@@ -25,7 +25,7 @@ settingsRoute.get("/", async (c) => {
 });
 
 settingsRoute.put("/", requireRole("superadmin"), zValidator("json", settingsUpdateSchema, zodValidationHook), async (c) => {
-  const db = createDb(c.env.CONTRIBUTIONS_DB);
+  const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);
   const auth = c.get("auth");
   const payload = c.req.valid("json");
   const now = nowIso();
