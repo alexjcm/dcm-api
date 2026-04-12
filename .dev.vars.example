@@ -1,0 +1,8 @@
+CLERK_SECRET_KEY=sk_test_replace_me
+CLERK_PUBLISHABLE_KEY=pk_test_replace_me
+# Opcional (recomendado para validación networkless)
+# CLERK_JWT_KEY=-----BEGIN PUBLIC KEY-----...-----END PUBLIC KEY-----
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+APP_ENV=development
+RATE_LIMIT_MAX=120
+RATE_LIMIT_WINDOW_MS=60000

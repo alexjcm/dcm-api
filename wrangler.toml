@@ -1,0 +1,16 @@
+name = "contributions-api"
+main = "src/index.ts"
+compatibility_date = "2026-04-11"
+
+[vars]
+TZ_BUSINESS = "America/Guayaquil"
+CORS_ALLOWED_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
+RATE_LIMIT_MAX = "120"
+RATE_LIMIT_WINDOW_MS = "60000"
+APP_ENV = "development"
+
+[[d1_databases]]
+binding = "CONTRIBUTIONS_DB"
+database_name = "contributions-db-development"
+database_id = "fe72a0a4-76d0-466f-bfb1-2fc89e40977e"
+migrations_dir = "migrations"

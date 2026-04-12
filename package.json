@@ -18,6 +18,7 @@
     "phase2:load:remote": "wrangler d1 execute CONTRIBUTIONS_DB --remote --file data/historical/sql/phase2-historical-import.sql"
   },
   "dependencies": {
+    "@hono/clerk-auth": "^3.1.1",
     "@hono/zod-validator": "^0.7.0",
     "drizzle-orm": "^0.44.2",
     "hono": "^4.10.1",
