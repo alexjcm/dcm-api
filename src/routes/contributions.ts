@@ -2,6 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
+import { API_PERMISSIONS } from "../config/permissions";
 import { createDb } from "../db/client";
 import { contributors, contributions } from "../db/schema";
 import { getCurrentBusinessYear, nowIso } from "../lib/business-time";
@@ -12,7 +13,7 @@ import { buildPagination, parsePageNumber, parsePageSize } from "../lib/paginati
 import { assertCanMutateContributionYear } from "../lib/period";
 import { success } from "../lib/responses";
 import { zodValidationHook } from "../lib/validator";
-import { requireRole } from "../middleware/require-role";
+import { requirePermission } from "../middleware/require-permission";
 
 const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato esperado: YYYY-MM-DD");
 
@@ -85,6 +86,7 @@ const ensureActiveContributor = async (db: ReturnType<typeof createDb>, contribu
 export const contributionsRoute = createAppRoute();
 
 const listContributionsHandlers = appFactory.createHandlers(
+  requirePermission(API_PERMISSIONS.contributionsRead),
   zValidator("query", contributionsQuerySchema, zodValidationHook),
   async (c) => {
     const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);
@@ -147,14 +149,14 @@ const listContributionsHandlers = appFactory.createHandlers(
 );
 
 const createContributionHandlers = appFactory.createHandlers(
-  requireRole("admin", "superadmin"),
+  requirePermission(API_PERMISSIONS.contributionsWrite),
   zValidator("json", contributionCreateSchema, zodValidationHook),
   async (c) => {
     const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);
     const auth = c.get("auth");
     const payload = c.req.valid("json");
 
-    assertCanMutateContributionYear(auth.role, payload.year);
+    assertCanMutateContributionYear(auth.permissions, payload.year);
     await ensureActiveContributor(db, payload.contributorId);
 
     const now = nowIso();
@@ -205,7 +207,7 @@ const createContributionHandlers = appFactory.createHandlers(
 );
 
 const updateContributionHandlers = appFactory.createHandlers(
-  requireRole("admin", "superadmin"),
+  requirePermission(API_PERMISSIONS.contributionsWrite),
   zValidator("param", idParamSchema, zodValidationHook),
   zValidator("json", contributionUpdateSchema, zodValidationHook),
   async (c) => {
@@ -231,7 +233,7 @@ const updateContributionHandlers = appFactory.createHandlers(
     }
 
     const targetYear = payload.year ?? existing.year;
-    assertCanMutateContributionYear(auth.role, targetYear);
+    assertCanMutateContributionYear(auth.permissions, targetYear);
 
     const targetContributorId = payload.contributorId ?? existing.contributorId;
     await ensureActiveContributor(db, targetContributorId);
@@ -292,7 +294,7 @@ const updateContributionHandlers = appFactory.createHandlers(
 );
 
 const deleteContributionHandlers = appFactory.createHandlers(
-  requireRole("admin", "superadmin"),
+  requirePermission(API_PERMISSIONS.contributionsWrite),
   zValidator("param", idParamSchema, zodValidationHook),
   async (c) => {
     const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);
@@ -311,7 +313,7 @@ const deleteContributionHandlers = appFactory.createHandlers(
       throw new AppHttpError(404, "CONTRIBUTION_NOT_FOUND", "El aporte no existe.");
     }
 
-    assertCanMutateContributionYear(auth.role, existing.year);
+    assertCanMutateContributionYear(auth.permissions, existing.year);
 
     if (existing.status === 0) {
       const current = await buildContributionResponseById(db, contributionId);

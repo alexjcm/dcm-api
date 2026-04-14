@@ -2,6 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
 
+import { API_PERMISSIONS } from "../config/permissions";
 import { createDb } from "../db/client";
 import { contributors } from "../db/schema";
 import { withD1ReadRetry } from "../lib/d1-retry";
@@ -10,7 +11,7 @@ import { appFactory, createAppRoute } from "../lib/hono-factory";
 import { nowIso } from "../lib/business-time";
 import { success } from "../lib/responses";
 import { zodValidationHook } from "../lib/validator";
-import { requireRole } from "../middleware/require-role";
+import { requirePermission } from "../middleware/require-permission";
 
 const contributorsQuerySchema = z.object({
   status: z.enum(["active", "all"]).optional()
@@ -35,6 +36,7 @@ const idParamSchema = z.object({
 export const contributorsRoute = createAppRoute();
 
 const listContributorsHandlers = appFactory.createHandlers(
+  requirePermission(API_PERMISSIONS.contributorsRead),
   zValidator("query", contributorsQuerySchema, zodValidationHook),
   async (c) => {
     const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);
@@ -65,7 +67,7 @@ const listContributorsHandlers = appFactory.createHandlers(
 );
 
 const createContributorHandlers = appFactory.createHandlers(
-  requireRole("superadmin"),
+  requirePermission(API_PERMISSIONS.contributorsWrite),
   zValidator("json", contributorCreateSchema, zodValidationHook),
   async (c) => {
     const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);
@@ -99,7 +101,7 @@ const createContributorHandlers = appFactory.createHandlers(
 );
 
 const updateContributorHandlers = appFactory.createHandlers(
-  requireRole("superadmin"),
+  requirePermission(API_PERMISSIONS.contributorsWrite),
   zValidator("param", idParamSchema, zodValidationHook),
   zValidator("json", contributorUpdateSchema, zodValidationHook),
   async (c) => {
@@ -154,7 +156,7 @@ const updateContributorHandlers = appFactory.createHandlers(
 );
 
 const deleteContributorHandlers = appFactory.createHandlers(
-  requireRole("superadmin"),
+  requirePermission(API_PERMISSIONS.contributorsWrite),
   zValidator("param", idParamSchema, zodValidationHook),
   async (c) => {
     const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);

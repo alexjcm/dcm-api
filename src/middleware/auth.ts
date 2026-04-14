@@ -1,54 +1,36 @@
-import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 import type { MiddlewareHandler } from "hono";
 
-import { getRoleFromClaims } from "../auth/role-claims";
-import { getClerkAuthorizedParties } from "../lib/cors";
 import { AppHttpError } from "../lib/errors";
+import { getPermissionsFromClaims } from "../lib/permissions";
 import type { AppBindings, AppVariables } from "../types/app";
 
 type AppMiddleware = MiddlewareHandler<{ Bindings: AppBindings; Variables: AppVariables }>;
 
-const readClaims = (auth: ReturnType<typeof getAuth>): Record<string, unknown> => {
-  if (auth.sessionClaims && typeof auth.sessionClaims === "object") {
-    return auth.sessionClaims as Record<string, unknown>;
+const BEARER_PREFIX = "Bearer ";
+const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+
+const normalizeIssuer = (issuer: string): string => (issuer.endsWith("/") ? issuer : `${issuer}/`);
+
+const getJwks = (issuer: string) => {
+  const existing = jwksCache.get(issuer);
+  if (existing) {
+    return existing;
   }
 
-  return {};
+  const jwksUrl = new URL(".well-known/jwks.json", issuer);
+  const jwks = createRemoteJWKSet(jwksUrl);
+  jwksCache.set(issuer, jwks);
+  return jwks;
 };
 
-const hasAuthHint = (c: Parameters<AppMiddleware>[0]): boolean => {
-  const authorization = c.req.header("authorization");
-  if (authorization && authorization.trim().length > 0) {
-    return true;
+const getBearerToken = (authorizationHeader: string | undefined): string | null => {
+  if (!authorizationHeader || !authorizationHeader.startsWith(BEARER_PREFIX)) {
+    return null;
   }
 
-  const cookie = c.req.header("cookie");
-  return Boolean(cookie && cookie.includes("__session="));
-};
-
-export const applyClerkMiddleware: AppMiddleware = async (c, next) => {
-  if (c.req.method === "OPTIONS") {
-    await next();
-    return;
-  }
-
-  // Skip Clerk handshake/auth processing when request has no auth hints.
-  // This avoids internal handshake errors on anonymous API calls and lets requireAuth return 401.
-  if (!hasAuthHint(c)) {
-    await next();
-    return;
-  }
-
-  const middlewareOptions = {
-    secretKey: c.env.CLERK_SECRET_KEY,
-    publishableKey: c.env.CLERK_PUBLISHABLE_KEY,
-    authorizedParties: getClerkAuthorizedParties(c.env),
-    ...(c.env.CLERK_JWT_KEY ? { jwtKey: c.env.CLERK_JWT_KEY } : {})
-  };
-
-  const middleware = clerkMiddleware(middlewareOptions);
-
-  await middleware(c, next);
+  const token = authorizationHeader.slice(BEARER_PREFIX.length).trim();
+  return token.length > 0 ? token : null;
 };
 
 export const requireAuth: AppMiddleware = async (c, next) => {
@@ -57,26 +39,34 @@ export const requireAuth: AppMiddleware = async (c, next) => {
     return;
   }
 
-  if (!hasAuthHint(c)) {
-    throw new AppHttpError(401, "UNAUTHENTICATED", "Se requiere sesión autenticada.");
+  const token = getBearerToken(c.req.header("authorization"));
+  if (!token) {
+    throw new AppHttpError(401, "UNAUTHENTICATED", "Se requiere token Bearer.");
   }
 
-  const auth = getAuth(c, { acceptsToken: "session_token" });
+  const issuer = normalizeIssuer(c.env.AUTH0_ISSUER);
 
-  if (!auth.isAuthenticated || !auth.userId) {
-    throw new AppHttpError(401, "UNAUTHENTICATED", "Se requiere sesión autenticada.");
+  try {
+    const { payload } = await jwtVerify(token, getJwks(issuer), {
+      issuer,
+      audience: c.env.AUTH0_AUDIENCE
+    });
+
+    if (typeof payload.sub !== "string" || payload.sub.trim().length === 0) {
+      throw new AppHttpError(401, "UNAUTHENTICATED", "El token no incluye un subject válido.");
+    }
+
+    c.set("auth", {
+      userId: payload.sub,
+      permissions: getPermissionsFromClaims(payload)
+    });
+
+    await next();
+  } catch (error) {
+    if (error instanceof AppHttpError) {
+      throw error;
+    }
+
+    throw new AppHttpError(401, "UNAUTHENTICATED", "Token inválido o expirado.");
   }
-
-  const role = getRoleFromClaims(readClaims(auth));
-
-  if (!role) {
-    throw new AppHttpError(403, "FORBIDDEN_ROLE", "El claim de rol es inválido o no existe.");
-  }
-
-  c.set("auth", {
-    userId: auth.userId,
-    role
-  });
-
-  await next();
 };

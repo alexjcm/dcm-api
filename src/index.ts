@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 
 import { AppHttpError } from "./lib/errors";
 import { failure } from "./lib/responses";
-import { applyClerkMiddleware, requireAuth } from "./middleware/auth";
+import { requireAuth } from "./middleware/auth";
 import { strictCors } from "./middleware/cors";
 import { basicRateLimit } from "./middleware/rate-limit";
 import { contributionsRoute } from "./routes/contributions";
@@ -25,7 +25,6 @@ app.get("/health", (c) => {
 
 app.use("/api/*", strictCors);
 app.use("/api/*", basicRateLimit);
-app.use("/api/*", applyClerkMiddleware);
 app.use("/api/*", requireAuth);
 
 // Keep feature routes isolated by module and mount with app.route().

@@ -1,6 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { asc, eq } from "drizzle-orm";
 
+import { API_PERMISSIONS } from "../config/permissions";
 import { createDb } from "../db/client";
 import { settings } from "../db/schema";
 import { withD1ReadRetry } from "../lib/d1-retry";
@@ -10,34 +11,37 @@ import { nowIso } from "../lib/business-time";
 import { success } from "../lib/responses";
 import { settingsUpdateSchema } from "../lib/settings";
 import { zodValidationHook } from "../lib/validator";
-import { requireRole } from "../middleware/require-role";
+import { requirePermission } from "../middleware/require-permission";
 
 export const settingsRoute = createAppRoute();
 
-const listSettingsHandlers = appFactory.createHandlers(async (c) => {
-  const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);
+const listSettingsHandlers = appFactory.createHandlers(
+  requirePermission(API_PERMISSIONS.settingsRead),
+  async (c) => {
+    const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);
 
-  const rows = await withD1ReadRetry(
-    async () =>
-      db
-        .select({
-          key: settings.key,
-          value: settings.value,
-          createdAt: settings.createdAt,
-          createdBy: settings.createdBy,
-          updatedAt: settings.updatedAt,
-          updatedBy: settings.updatedBy
-        })
-        .from(settings)
-        .orderBy(asc(settings.key)),
-    { label: "settings.list" }
-  );
+    const rows = await withD1ReadRetry(
+      async () =>
+        db
+          .select({
+            key: settings.key,
+            value: settings.value,
+            createdAt: settings.createdAt,
+            createdBy: settings.createdBy,
+            updatedAt: settings.updatedAt,
+            updatedBy: settings.updatedBy
+          })
+          .from(settings)
+          .orderBy(asc(settings.key)),
+      { label: "settings.list" }
+    );
 
-  return success(c, 200, { items: rows });
-});
+    return success(c, 200, { items: rows });
+  }
+);
 
 const updateSettingsHandlers = appFactory.createHandlers(
-  requireRole("superadmin"),
+  requirePermission(API_PERMISSIONS.settingsWrite),
   zValidator("json", settingsUpdateSchema, zodValidationHook),
   async (c) => {
     const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);

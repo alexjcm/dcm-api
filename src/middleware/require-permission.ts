@@ -1,16 +1,17 @@
 import type { MiddlewareHandler } from "hono";
 
-import type { AppRole } from "../config/runtime";
+import type { ApiPermission } from "../config/permissions";
 import { AppHttpError } from "../lib/errors";
 import type { AppBindings, AppVariables } from "../types/app";
 
 type AppMiddleware = MiddlewareHandler<{ Bindings: AppBindings; Variables: AppVariables }>;
 
-export const requireRole = (...allowedRoles: AppRole[]): AppMiddleware => {
+export const requirePermission = (...requiredPermissions: ApiPermission[]): AppMiddleware => {
   return async (c, next) => {
-    const auth = c.get("auth");
+    const { permissions } = c.get("auth");
+    const isAllowed = requiredPermissions.some((permission) => permissions.has(permission));
 
-    if (!allowedRoles.includes(auth.role)) {
+    if (!isAllowed) {
       throw new AppHttpError(403, "FORBIDDEN", "No tienes permisos para esta operación.");
     }
 

@@ -23,10 +23,10 @@
     "phase2:load:production": "wrangler d1 execute CONTRIBUTIONS_DB_BINDING --remote --env production --file data/historical/sql/phase2-historical-import.sql"
   },
   "dependencies": {
-    "@hono/clerk-auth": "^3.1.1",
     "@hono/zod-validator": "^0.7.0",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.10.1",
+    "jose": "^6.2.2",
     "xlsx": "^0.18.5",
     "zod": "^4.1.12"
   },

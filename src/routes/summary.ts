@@ -2,6 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 
+import { API_PERMISSIONS } from "../config/permissions";
 import { createDb } from "../db/client";
 import { contributors, contributions, settings } from "../db/schema";
 import { getCurrentBusinessYear } from "../lib/business-time";
@@ -9,6 +10,7 @@ import { parseMonthlyAmountCents } from "../lib/settings";
 import { success } from "../lib/responses";
 import { withD1ReadRetry } from "../lib/d1-retry";
 import { appFactory, createAppRoute } from "../lib/hono-factory";
+import { requirePermission } from "../middleware/require-permission";
 import { zodValidationHook } from "../lib/validator";
 
 const summaryQuerySchema = z.object({
@@ -23,6 +25,7 @@ type MonthlyStats = {
 export const summaryRoute = createAppRoute();
 
 const getSummaryHandlers = appFactory.createHandlers(
+  requirePermission(API_PERMISSIONS.summaryRead),
   zValidator("query", summaryQuerySchema, zodValidationHook),
   async (c) => {
     const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);

@@ -1,9 +1,9 @@
-import type { AppRole } from "../config/runtime";
+import { API_PERMISSIONS } from "../config/permissions";
 import { getCurrentBusinessYear } from "./business-time";
 import { AppHttpError } from "./errors";
 
-export const assertCanMutateContributionYear = (role: AppRole, year: number) => {
-  if (role === "viewer") {
+export const assertCanMutateContributionYear = (permissions: ReadonlySet<string>, year: number) => {
+  if (!permissions.has(API_PERMISSIONS.contributionsWrite)) {
     throw new AppHttpError(403, "FORBIDDEN", "No tienes permisos para mutar aportes.");
   }
 

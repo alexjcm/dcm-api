@@ -17,15 +17,6 @@ export const getAllowedOrigins = (env: AppBindings): string[] => {
   return parsed;
 };
 
-export const getClerkAuthorizedParties = (env: AppBindings): string[] => {
-  const explicit = parseCsv(env.CLERK_AUTHORIZED_PARTIES);
-  if (explicit.length > 0) {
-    return explicit;
-  }
-
-  return getAllowedOrigins(env);
-};
-
 export const isAllowedOrigin = (env: AppBindings, origin: string | null): boolean => {
   if (!origin) {
     return true;
