@@ -60,7 +60,7 @@
           "database_id": "740875d6-295e-43b2-ad3f-16640efb8948",
           "migrations_dir": "migrations"
         }
-      ]
+      ],"name": "contributions-api"
     }
   }
 }
