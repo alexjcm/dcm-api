@@ -12,7 +12,7 @@ export class AppHttpError extends Error {
   }
 }
 
-export const isD1UniqueConstraintError = (error: unknown): boolean => {
+export const isUniqueConstraintError = (error: unknown): boolean => {
   const message = error instanceof Error ? error.message : String(error ?? "");
   return message.includes("UNIQUE constraint failed");
 };

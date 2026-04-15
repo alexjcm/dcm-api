@@ -4,7 +4,7 @@ import { asc, eq } from "drizzle-orm";
 import { API_PERMISSIONS } from "../config/permissions";
 import { createDb } from "../db/client";
 import { settings } from "../db/schema";
-import { withD1ReadRetry } from "../lib/d1-retry";
+import { withDbReadRetry } from "../lib/db-retry";
 import { AppHttpError } from "../lib/errors";
 import { appFactory, createAppRoute } from "../lib/hono-factory";
 import { nowIso } from "../lib/business-time";
@@ -20,7 +20,7 @@ const listSettingsHandlers = appFactory.createHandlers(
   async (c) => {
     const db = createDb(c.env.CONTRIBUTIONS_DB_BINDING);
 
-    const rows = await withD1ReadRetry(
+    const rows = await withDbReadRetry(
       async () =>
         db
           .select({

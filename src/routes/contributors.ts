@@ -5,8 +5,8 @@ import { z } from "zod";
 import { API_PERMISSIONS } from "../config/permissions";
 import { createDb } from "../db/client";
 import { contributors } from "../db/schema";
-import { withD1ReadRetry } from "../lib/d1-retry";
-import { AppHttpError, isD1UniqueConstraintError } from "../lib/errors";
+import { withDbReadRetry } from "../lib/db-retry";
+import { AppHttpError, isUniqueConstraintError } from "../lib/errors";
 import { appFactory, createAppRoute } from "../lib/hono-factory";
 import { nowIso } from "../lib/business-time";
 import { success } from "../lib/responses";
@@ -43,7 +43,7 @@ const listContributorsHandlers = appFactory.createHandlers(
     const query = c.req.valid("query");
     const statusFilter = query.status ?? "active";
 
-    const rows = await withD1ReadRetry(
+    const rows = await withDbReadRetry(
       async () =>
         db
           .select({
@@ -91,7 +91,7 @@ const createContributorHandlers = appFactory.createHandlers(
 
       return success(c, 201, inserted[0]);
     } catch (error) {
-      if (isD1UniqueConstraintError(error)) {
+      if (isUniqueConstraintError(error)) {
         throw new AppHttpError(409, "EMAIL_CONFLICT", "El email ya está en uso por otro contribuidor.");
       }
 
@@ -146,7 +146,7 @@ const updateContributorHandlers = appFactory.createHandlers(
 
       return success(c, 200, updated);
     } catch (error) {
-      if (isD1UniqueConstraintError(error)) {
+      if (isUniqueConstraintError(error)) {
         throw new AppHttpError(409, "EMAIL_CONFLICT", "El email ya está en uso por otro contribuidor.");
       }
 

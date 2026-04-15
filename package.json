@@ -8,32 +8,33 @@
   },
   "scripts": {
     "dev": "wrangler dev src/index.ts",
-    "deploy": "wrangler deploy --env production",
-    "deploy:production": "wrangler deploy --env production",
+    "deploy:prod": "wrangler deploy --env production",
     "typecheck": "tsc --noEmit",
-    "types:bindings": "wrangler types",
-    "db:generate": "drizzle-kit generate --config drizzle.config.ts",
-    "db:check": "drizzle-kit check --config drizzle.config.ts",
-    "db:push:production": "CLOUDFLARE_DATABASE_ID=740875d6-295e-43b2-ad3f-16640efb8948 drizzle-kit push --config drizzle.config.ts",
-    "db:create:production": "wrangler d1 create contributions-db-production",
-    "db:migrate:local": "wrangler d1 migrations apply CONTRIBUTIONS_DB_BINDING --local",
-    "db:migrate:production": "wrangler d1 migrations apply CONTRIBUTIONS_DB_BINDING --remote --env production",
-    "phase2:build-sql": "node scripts/phase2/build-historical-sql.mjs",
-    "phase2:load:local": "wrangler d1 execute CONTRIBUTIONS_DB_BINDING --local --file data/historical/sql/phase2-historical-import.sql",
-    "phase2:load:production": "wrangler d1 execute CONTRIBUTIONS_DB_BINDING --remote --env production --file data/historical/sql/phase2-historical-import.sql"
+    "types:wrangler": "wrangler types",
+    "d1:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "d1:check": "drizzle-kit check --config drizzle.config.ts",
+    "d1:migrate:local": "wrangler d1 migrations apply CONTRIBUTIONS_DB_BINDING --local",
+    "d1:migrate:prod": "wrangler d1 migrations apply CONTRIBUTIONS_DB_BINDING --remote --env production",
+    "d1:reset:local": "./tools/d1-reset-local.sh",
+    "d1:seed:local": "./tools/d1-seed-local.sh",
+    "d1:bootstrap:local": "npm run d1:reset:local && npm run d1:seed:local",
+    "d1:snapshot:local": "./tools/d1-snapshot-local.sh",
+    "d1:restore:local": "./tools/d1-restore-local.sh",
+    "tool:d1:inspect:prod": "./tools/d1-inspect.sh --remote --env production",
+    "tool:smoke:rbac:prod": "./tools/smoke-rbac-production.sh"
   },
   "dependencies": {
-    "@hono/zod-validator": "^0.7.0",
+    "@hono/zod-validator": "^0.7.6",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.10.1",
+    "hono": "^4.12.12",
     "jose": "^6.2.2",
     "xlsx": "^0.18.5",
     "zod": "^4.1.12"
   },
   "devDependencies": {
     "@types/node": "^24.6.2",
-    "drizzle-kit": "^0.31.4",
+    "drizzle-kit": "^0.31.10",
     "typescript": "^5.9.3",
-    "wrangler": "^4.11.1"
+    "wrangler": "^4.82.2"
   }
 }

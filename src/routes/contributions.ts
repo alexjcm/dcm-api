@@ -6,8 +6,8 @@ import { API_PERMISSIONS } from "../config/permissions";
 import { createDb } from "../db/client";
 import { contributors, contributions } from "../db/schema";
 import { getCurrentBusinessYear, nowIso } from "../lib/business-time";
-import { withD1ReadRetry } from "../lib/d1-retry";
-import { AppHttpError, isD1UniqueConstraintError } from "../lib/errors";
+import { withDbReadRetry } from "../lib/db-retry";
+import { AppHttpError, isUniqueConstraintError } from "../lib/errors";
 import { appFactory, createAppRoute } from "../lib/hono-factory";
 import { buildPagination, parsePageNumber, parsePageSize } from "../lib/pagination";
 import { assertCanMutateContributionYear } from "../lib/period";
@@ -106,7 +106,7 @@ const listContributionsHandlers = appFactory.createHandlers(
 
     const whereClause = and(...whereParts);
 
-    const [countRows, items] = await withD1ReadRetry(
+    const [countRows, items] = await withDbReadRetry(
       async () =>
         Promise.all([
           db
@@ -193,7 +193,7 @@ const createContributionHandlers = appFactory.createHandlers(
 
       return success(c, 201, created);
     } catch (error) {
-      if (isD1UniqueConstraintError(error)) {
+      if (isUniqueConstraintError(error)) {
         throw new AppHttpError(
           409,
           "ACTIVE_CONTRIBUTION_CONFLICT",
@@ -280,7 +280,7 @@ const updateContributionHandlers = appFactory.createHandlers(
 
       return success(c, 200, updated);
     } catch (error) {
-      if (isD1UniqueConstraintError(error)) {
+      if (isUniqueConstraintError(error)) {
         throw new AppHttpError(
           409,
           "ACTIVE_CONTRIBUTION_CONFLICT",

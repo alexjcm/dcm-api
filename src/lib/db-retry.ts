@@ -1,4 +1,4 @@
-import { AppHttpError, isD1UniqueConstraintError } from "./errors";
+import { AppHttpError, isUniqueConstraintError } from "./errors";
 
 // Retry only transient read failures; business/validation errors must fail fast.
 const RETRYABLE_PATTERNS = [
@@ -22,12 +22,12 @@ const wait = (ms: number): Promise<void> =>
     setTimeout(resolve, ms);
   });
 
-const isRetryableD1Error = (error: unknown): boolean => {
+const isRetryableDbError = (error: unknown): boolean => {
   if (error instanceof AppHttpError) {
     return false;
   }
 
-  if (isD1UniqueConstraintError(error)) {
+  if (isUniqueConstraintError(error)) {
     return false;
   }
 
@@ -35,17 +35,17 @@ const isRetryableD1Error = (error: unknown): boolean => {
   return RETRYABLE_PATTERNS.some((pattern) => pattern.test(message));
 };
 
-export const withD1ReadRetry = async <T>(operation: () => Promise<T>, options: RetryOptions = {}): Promise<T> => {
+export const withDbReadRetry = async <T>(operation: () => Promise<T>, options: RetryOptions = {}): Promise<T> => {
   const maxAttempts = options.maxAttempts ?? 3;
   const baseDelayMs = options.baseDelayMs ?? 50;
   const maxDelayMs = options.maxDelayMs ?? 300;
-  const label = options.label ?? "d1-read";
+  const label = options.label ?? "db-read";
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       return await operation();
     } catch (error) {
-      const canRetry = attempt < maxAttempts && isRetryableD1Error(error);
+      const canRetry = attempt < maxAttempts && isRetryableDbError(error);
 
       if (!canRetry) {
         throw error;
@@ -57,7 +57,7 @@ export const withD1ReadRetry = async <T>(operation: () => Promise<T>, options: R
 
       console.warn(
         JSON.stringify({
-          message: "Retrying D1 read query",
+          message: "Retrying DB read query",
           label,
           attempt,
           maxAttempts,

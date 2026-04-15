@@ -8,7 +8,7 @@ import { contributors, contributions, settings } from "../db/schema";
 import { getCurrentBusinessYear } from "../lib/business-time";
 import { parseMonthlyAmountCents } from "../lib/settings";
 import { success } from "../lib/responses";
-import { withD1ReadRetry } from "../lib/d1-retry";
+import { withDbReadRetry } from "../lib/db-retry";
 import { appFactory, createAppRoute } from "../lib/hono-factory";
 import { requirePermission } from "../middleware/require-permission";
 import { zodValidationHook } from "../lib/validator";
@@ -33,7 +33,7 @@ const getSummaryHandlers = appFactory.createHandlers(
 
     const year = query.year ? Number(query.year) : getCurrentBusinessYear();
 
-    const [monthlyRows, contributorRows, contributionRows] = await withD1ReadRetry(
+    const [monthlyRows, contributorRows, contributionRows] = await withDbReadRetry(
       async () =>
         Promise.all([
           db
