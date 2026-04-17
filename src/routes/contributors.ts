@@ -92,7 +92,7 @@ const createContributorHandlers = appFactory.createHandlers(
       return success(c, 201, inserted[0]);
     } catch (error) {
       if (isUniqueConstraintError(error)) {
-        throw new AppHttpError(409, "EMAIL_CONFLICT", "El email ya está en uso por otro contribuidor.");
+        throw new AppHttpError(409, "EMAIL_CONFLICT", "El email ya está en uso por otro contribuyente.");
       }
 
       throw error;
@@ -119,7 +119,7 @@ const updateContributorHandlers = appFactory.createHandlers(
     const existing = existingRows[0];
 
     if (!existing) {
-      throw new AppHttpError(404, "CONTRIBUTOR_NOT_FOUND", "El contribuidor no existe.");
+      throw new AppHttpError(404, "CONTRIBUTOR_NOT_FOUND", "El contribuyente no existe.");
     }
 
     try {
@@ -141,13 +141,13 @@ const updateContributorHandlers = appFactory.createHandlers(
       const updated = updatedRows[0];
 
       if (!updated) {
-        throw new AppHttpError(500, "READ_AFTER_WRITE_FAILED", "No se pudo recuperar el contribuidor actualizado.");
+        throw new AppHttpError(500, "READ_AFTER_WRITE_FAILED", "No se pudo recuperar el contribuyente actualizado.");
       }
 
       return success(c, 200, updated);
     } catch (error) {
       if (isUniqueConstraintError(error)) {
-        throw new AppHttpError(409, "EMAIL_CONFLICT", "El email ya está en uso por otro contribuidor.");
+        throw new AppHttpError(409, "EMAIL_CONFLICT", "El email ya está en uso por otro contribuyente.");
       }
 
       throw error;
@@ -172,7 +172,7 @@ const deleteContributorHandlers = appFactory.createHandlers(
     const existing = existingRows[0];
 
     if (!existing) {
-      throw new AppHttpError(404, "CONTRIBUTOR_NOT_FOUND", "El contribuidor no existe.");
+      throw new AppHttpError(404, "CONTRIBUTOR_NOT_FOUND", "El contribuyente no existe.");
     }
 
     if (existing.status === 0) {
@@ -196,7 +196,7 @@ const deleteContributorHandlers = appFactory.createHandlers(
     const updated = updatedRows[0];
 
     if (!updated) {
-      throw new AppHttpError(500, "READ_AFTER_WRITE_FAILED", "No se pudo recuperar el contribuidor desactivado.");
+      throw new AppHttpError(500, "READ_AFTER_WRITE_FAILED", "No se pudo recuperar el contribuyente desactivado.");
     }
 
     return success(c, 200, updated);

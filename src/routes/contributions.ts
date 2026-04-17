@@ -27,8 +27,7 @@ const contributionCreateSchema = z.object({
   contributorId: z.number().int().positive(),
   year: z.number().int().min(2000).max(2100),
   month: z.number().int().min(1).max(12),
-  amountCents: z.number().int().min(1),
-  notes: z.string().max(500).trim().nullable().optional()
+  amountCents: z.number().int().min(1)
 });
 
 const contributionUpdateSchema = contributionCreateSchema
@@ -49,7 +48,6 @@ const buildContributionResponseById = async (db: ReturnType<typeof createDb>, id
       year: contributions.year,
       month: contributions.month,
       amountCents: contributions.amountCents,
-      notes: contributions.notes,
       status: contributions.status,
       createdAt: contributions.createdAt,
       createdBy: contributions.createdBy,
@@ -72,11 +70,11 @@ const ensureActiveContributor = async (db: ReturnType<typeof createDb>, contribu
   const contributor = rows[0];
 
   if (!contributor) {
-    throw new AppHttpError(404, "CONTRIBUTOR_NOT_FOUND", "El contribuidor no existe.");
+    throw new AppHttpError(404, "CONTRIBUTOR_NOT_FOUND", "El contribuyente no existe.");
   }
 
   if (contributor.status !== 1) {
-    throw new AppHttpError(422, "CONTRIBUTOR_INACTIVE", "No se pueden registrar aportes para contribuidores inactivos.");
+    throw new AppHttpError(422, "CONTRIBUTOR_INACTIVE", "No se pueden registrar aportes para contribuyentes inactivos.");
   }
 };
 
@@ -112,7 +110,6 @@ const listContributionsHandlers = appFactory.createHandlers(
         year: contributions.year,
         month: contributions.month,
         amountCents: contributions.amountCents,
-        notes: contributions.notes,
         status: contributions.status,
         createdAt: contributions.createdAt,
         createdBy: contributions.createdBy,
@@ -168,7 +165,6 @@ const createContributionHandlers = appFactory.createHandlers(
           year: payload.year,
           month: payload.month,
           amountCents: payload.amountCents,
-          notes: payload.notes ?? null,
           status: 1,
           createdAt: now,
           createdBy: auth.userId,
@@ -195,7 +191,7 @@ const createContributionHandlers = appFactory.createHandlers(
         throw new AppHttpError(
           409,
           "ACTIVE_CONTRIBUTION_CONFLICT",
-          "Ya existe un aporte activo para ese contribuidor en el mismo año y mes."
+          "Ya existe un aporte activo para ese contribuyente en el mismo año y mes."
         );
       }
 
@@ -236,14 +232,11 @@ const updateContributionHandlers = appFactory.createHandlers(
     const targetContributorId = payload.contributorId ?? existing.contributorId;
     await ensureActiveContributor(db, targetContributorId);
 
-    const nextNotes = Object.hasOwn(payload, "notes") ? (payload.notes ?? null) : existing.notes;
-
     const hasChanges =
       targetContributorId !== existing.contributorId ||
       targetYear !== existing.year ||
       (payload.month ?? existing.month) !== existing.month ||
-      (payload.amountCents ?? existing.amountCents) !== existing.amountCents ||
-      nextNotes !== existing.notes;
+      (payload.amountCents ?? existing.amountCents) !== existing.amountCents;
 
     if (!hasChanges) {
       const current = await buildContributionResponseById(db, contributionId);
@@ -261,7 +254,6 @@ const updateContributionHandlers = appFactory.createHandlers(
           year: targetYear,
           month: payload.month ?? existing.month,
           amountCents: payload.amountCents ?? existing.amountCents,
-          notes: nextNotes,
           updatedAt: nowIso(),
           updatedBy: auth.userId
         })
@@ -279,7 +271,7 @@ const updateContributionHandlers = appFactory.createHandlers(
         throw new AppHttpError(
           409,
           "ACTIVE_CONTRIBUTION_CONFLICT",
-          "Ya existe un aporte activo para ese contribuidor en el mismo año y mes."
+          "Ya existe un aporte activo para ese contribuyente en el mismo año y mes."
         );
       }
 

@@ -1,0 +1,26 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "contributions-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-04-13",
+  "compatibility_flags": ["nodejs_compat"],
+  "keep_vars": true,
+  "vars": {
+    "TZ_BUSINESS": "America/Guayaquil",
+    "CORS_ALLOWED_ORIGINS": "http://localhost:5173,http://127.0.0.1:5173",
+    "AUTH0_ISSUER": "https://dev-mz3wmzwe2532icvg.us.auth0.com/",
+    "AUTH0_AUDIENCE": "https://api.contributions",
+    "RATE_LIMIT_MAX": "120",
+    "RATE_LIMIT_WINDOW_MS": "60000",
+    "RATE_LIMIT_MAX_BUCKETS": "5000",
+    "APP_ENV": "development"
+  },
+  "d1_databases": [
+    {
+      "binding": "CONTRIBUTIONS_DB_BINDING",
+      "database_name": "contributions-db-local",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

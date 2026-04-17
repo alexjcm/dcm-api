@@ -7,15 +7,15 @@
     "node": ">=24 <25"
   },
   "scripts": {
-    "dev": "wrangler dev src/index.ts",
+    "dev": "wrangler --config wrangler.dev.jsonc dev src/index.ts --local",
     "deploy": "wrangler deploy",
     "deploy:prod": "wrangler deploy",
     "preview": "wrangler versions upload",
     "typecheck": "tsc --noEmit",
-    "types:wrangler": "wrangler types",
+    "types:wrangler": "wrangler --config wrangler.dev.jsonc types",
     "d1:generate": "drizzle-kit generate --config drizzle.config.ts",
     "d1:check": "drizzle-kit check --config drizzle.config.ts",
-    "d1:migrate:local": "wrangler d1 migrations apply CONTRIBUTIONS_DB_BINDING --local",
+    "d1:migrate:local": "wrangler --config wrangler.dev.jsonc d1 migrations apply CONTRIBUTIONS_DB_BINDING --local",
     "d1:migrate:prod": "wrangler d1 migrations apply CONTRIBUTIONS_DB_BINDING --remote",
     "d1:reset:local": "./tools/d1-reset-local.sh",
     "d1:seed:local": "./tools/d1-seed-local.sh",
