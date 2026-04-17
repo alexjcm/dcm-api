@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { API_PERMISSIONS } from "../config/permissions";
@@ -18,6 +18,7 @@ import { requirePermission } from "../middleware/require-permission";
 const contributionsQuerySchema = z.object({
   year: z.string().regex(/^\d+$/).optional(),
   contributorId: z.string().regex(/^\d+$/).optional(),
+  all: z.enum(["true", "false"]).optional(),
   "page[number]": z.string().regex(/^\d+$/).optional(),
   "page[size]": z.string().regex(/^\d+$/).optional()
 });
@@ -90,6 +91,7 @@ const listContributionsHandlers = appFactory.createHandlers(
 
     const year = query.year ? Number(query.year) : getCurrentBusinessYear();
     const contributorId = query.contributorId ? Number(query.contributorId) : null;
+    const loadAll = query.all === "true";
     const pageNumber = parsePageNumber(query["page[number]"]);
     const pageSize = parsePageSize(query["page[size]"]);
     const offset = (pageNumber - 1) * pageSize;
@@ -102,6 +104,26 @@ const listContributionsHandlers = appFactory.createHandlers(
 
     const whereClause = and(...whereParts);
 
+    const baseItemsQuery = db
+      .select({
+        id: contributions.id,
+        contributorId: contributions.contributorId,
+        contributorName: contributors.name,
+        year: contributions.year,
+        month: contributions.month,
+        amountCents: contributions.amountCents,
+        notes: contributions.notes,
+        status: contributions.status,
+        createdAt: contributions.createdAt,
+        createdBy: contributions.createdBy,
+        updatedAt: contributions.updatedAt,
+        updatedBy: contributions.updatedBy
+      })
+      .from(contributions)
+      .innerJoin(contributors, eq(contributors.id, contributions.contributorId))
+      .where(whereClause)
+      .orderBy(desc(contributions.month), asc(contributors.name));
+
     const [countRows, items] = await withDbReadRetry(
       async () =>
         Promise.all([
@@ -109,36 +131,18 @@ const listContributionsHandlers = appFactory.createHandlers(
             .select({ totalItems: sql<number>`count(*)` })
             .from(contributions)
             .where(whereClause),
-          db
-            .select({
-              id: contributions.id,
-              contributorId: contributions.contributorId,
-              contributorName: contributors.name,
-              year: contributions.year,
-              month: contributions.month,
-              amountCents: contributions.amountCents,
-              notes: contributions.notes,
-              status: contributions.status,
-              createdAt: contributions.createdAt,
-              createdBy: contributions.createdBy,
-              updatedAt: contributions.updatedAt,
-              updatedBy: contributions.updatedBy
-            })
-            .from(contributions)
-            .innerJoin(contributors, eq(contributors.id, contributions.contributorId))
-            .where(whereClause)
-            .orderBy(asc(contributions.month), asc(contributors.name))
-            .limit(pageSize)
-            .offset(offset)
+          loadAll ? baseItemsQuery : baseItemsQuery.limit(pageSize).offset(offset)
         ]),
       { label: "contributions.list" }
     );
 
     const totalItems = Number(countRows[0]?.totalItems ?? 0);
+    const effectivePageSize = loadAll ? Math.max(items.length, 1) : pageSize;
+    const effectivePageNumber = loadAll ? 1 : pageNumber;
 
     return success(c, 200, {
       items,
-      pagination: buildPagination(pageNumber, pageSize, totalItems)
+      pagination: buildPagination(effectivePageNumber, effectivePageSize, totalItems)
     });
   }
 );
