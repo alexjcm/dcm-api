@@ -26,15 +26,15 @@
   "dependencies": {
     "@hono/zod-validator": "^0.7.6",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.12.14",
-    "jose": "^6.2.2",
+    "hono": "^4.12.15",
+    "jose": "^6.2.3",
     "zod": "^4.1.12"
   },
   "devDependencies": {
     "@types/node": "^24.6.2",
     "drizzle-kit": "^0.31.10",
     "typescript": "^6.0.3",
-    "wrangler": "^4.84.1"
+    "wrangler": "^4.86.0"
   },
   "overrides": {
     "@esbuild-kit/core-utils": {

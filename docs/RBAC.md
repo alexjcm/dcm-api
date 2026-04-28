@@ -58,3 +58,32 @@ If a new permission needs to be added:
 1. **In Auth0:** Register the permission in the API Permissions section and assign it to the corresponding roles.
 2. **In Code:** Add it to `src/config/permissions.ts` in both the API and the Web app.
 3. **In the UI:** Use route guards or the `hasPermission()` function as appropriate.
+
+---
+
+## 5. Verification & Smoke Tests
+
+To guarantee that RBAC is correctly enforced, follow this verification flow after any change in Auth0 or in the permission dictionary.
+
+### Manual Verification (UX)
+1. **Login as `viewer`**: Verify only read access (summary, contributions, contributors). Write buttons should be hidden.
+2. **Login as `admin`**: Verify permission to create/edit contributions and manage members.
+3. **Login as `superadmin`**: Verify access to global settings and Target configuration.
+4. **Mobile Check (Chrome Mobile)**:
+   - Initial access and session persistence.
+   - `/contributions` list reload.
+   - Logout functionality and clean session state.
+
+### Response Codes (API)
+- `401 Unauthorized`: Token missing or invalid.
+- `403 Forbidden`: Token valid but missing the required permission.
+- `200/201 OK`: Authorized access.
+
+### Automated Smoke Test (Production)
+Run the utility script to audit all endpoints across different roles:
+
+```bash
+cd dcm-api
+VIEWER_TOKEN="..." ADMIN_TOKEN="..." SUPERADMIN_TOKEN="..." \
+./tools/smoke-rbac-production.sh
+```
