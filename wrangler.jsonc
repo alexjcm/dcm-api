@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "dcm-api",
-  "main": "src/NON_EXISTENT_FILE_FOR_TESTING2.ts",
+  "main": "src/index.ts",
   // Keep runtime behavior current with platform fixes.
   "compatibility_date": "2026-04-13",
   "compatibility_flags": ["nodejs_compat"],
