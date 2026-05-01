@@ -1,6 +1,6 @@
 {
   "name": "dcm-api",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -26,15 +26,15 @@
   "dependencies": {
     "@hono/zod-validator": "^0.7.6",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.12.15",
+    "hono": "^4.12.16",
     "jose": "^6.2.3",
-    "zod": "^4.1.12"
+    "zod": "^4.4.1"
   },
   "devDependencies": {
     "@types/node": "^24.6.2",
     "drizzle-kit": "^0.31.10",
     "typescript": "^6.0.3",
-    "wrangler": "^4.86.0"
+    "wrangler": "^4.87.0"
   },
   "overrides": {
     "@esbuild-kit/core-utils": {
