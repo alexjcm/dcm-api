@@ -20,4 +20,5 @@ export type AuthContext = {
 
 export type AppVariables = {
   auth: AuthContext;
+  requestId: string;
 };

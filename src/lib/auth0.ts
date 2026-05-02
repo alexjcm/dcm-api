@@ -6,6 +6,7 @@ export const DCM_PASSWORD_SETUP_PENDING_APP_METADATA_KEY = "dcm_password_setup_p
 
 type Auth0TokenResponse = {
   access_token?: string;
+  expires_in?: number;
 };
 
 type Auth0IdentityResponse = {
@@ -45,6 +46,15 @@ type UpdateDatabaseUserProfileInput = {
   name?: string;
   email?: string;
 };
+
+type Auth0AccessTokenCacheEntry = {
+  accessToken: string;
+  expiresAt: number;
+};
+
+const auth0AccessTokenCache = new Map<string, Auth0AccessTokenCacheEntry>();
+const AUTH0_ACCESS_TOKEN_FALLBACK_TTL_MS = 5 * 60_000;
+const AUTH0_ACCESS_TOKEN_SKEW_MS = 60_000;
 
 const toAuth0UserRecord = (user: Auth0UserResponse): Auth0UserRecord => {
   const identities = Array.isArray(user.identities)
@@ -87,6 +97,14 @@ const buildManagementUrl = (env: AppBindings, path: string): string => {
   return `https://${env.AUTH0_DOMAIN}/api/v2${normalizedPath}`;
 };
 
+const getAccessTokenCacheKey = (env: AppBindings): string => {
+  return [
+    env.AUTH0_DOMAIN,
+    env.AUTH0_M2M_CLIENT_ID,
+    env.AUTH0_M2M_AUDIENCE
+  ].join("|");
+};
+
 const generateSecureTempPassword = (): string => {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
@@ -95,7 +113,42 @@ const generateSecureTempPassword = (): string => {
 };
 
 export class Auth0ManagementAPI {
+  private static readCachedAccessToken(env: AppBindings): string | null {
+    const cacheKey = getAccessTokenCacheKey(env);
+    const cacheEntry = auth0AccessTokenCache.get(cacheKey);
+    if (!cacheEntry) {
+      return null;
+    }
+
+    if (Date.now() >= cacheEntry.expiresAt) {
+      auth0AccessTokenCache.delete(cacheKey);
+      return null;
+    }
+
+    return cacheEntry.accessToken;
+  }
+
+  private static writeCachedAccessToken(env: AppBindings, accessToken: string, expiresInSeconds?: number): void {
+    const ttlMs = typeof expiresInSeconds === "number" && Number.isFinite(expiresInSeconds) && expiresInSeconds > 0
+      ? Math.max(1_000, expiresInSeconds * 1_000 - AUTH0_ACCESS_TOKEN_SKEW_MS)
+      : AUTH0_ACCESS_TOKEN_FALLBACK_TTL_MS;
+
+    auth0AccessTokenCache.set(getAccessTokenCacheKey(env), {
+      accessToken,
+      expiresAt: Date.now() + ttlMs
+    });
+  }
+
+  private static invalidateCachedAccessToken(env: AppBindings): void {
+    auth0AccessTokenCache.delete(getAccessTokenCacheKey(env));
+  }
+
   private static async getAccessToken(env: AppBindings): Promise<string> {
+    const cachedAccessToken = this.readCachedAccessToken(env);
+    if (cachedAccessToken) {
+      return cachedAccessToken;
+    }
+
     const response = await fetch(`https://${env.AUTH0_DOMAIN}/oauth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -117,6 +170,7 @@ export class Auth0ManagementAPI {
       throw new AppHttpError(500, "AUTH0_TOKEN_RESPONSE_INVALID", "Auth0 no devolvió access_token.");
     }
 
+    this.writeCachedAccessToken(env, data.access_token, data.expires_in);
     return data.access_token;
   }
 
@@ -125,16 +179,23 @@ export class Auth0ManagementAPI {
     path: string,
     init?: RequestInit & { allowNotFound?: boolean }
   ): Promise<T | null> {
-    const token = await this.getAccessToken(env);
     const { allowNotFound = false, headers, ...requestInit } = init ?? {};
-    const response = await fetch(buildManagementUrl(env, path), {
-      ...requestInit,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        ...headers
-      }
-    });
+    const executeRequest = async (token: string): Promise<Response> =>
+      fetch(buildManagementUrl(env, path), {
+        ...requestInit,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          ...headers
+        }
+      });
+
+    let response = await executeRequest(await this.getAccessToken(env));
+
+    if (response.status === 401) {
+      this.invalidateCachedAccessToken(env);
+      response = await executeRequest(await this.getAccessToken(env));
+    }
 
     if (allowNotFound && response.status === 404) {
       return null;

@@ -1,62 +1,96 @@
-import { Hono } from 'hono'
-import { sign, verify } from 'hono/jwt'
-import { AppHttpError } from '../lib/errors'
-import type { AppBindings, AppVariables } from '../types/app'
+import { zValidator } from "@hono/zod-validator";
+import { sign, verify } from "hono/jwt";
+import { z } from "zod";
 
-export const authRoute = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>()
+import { AppHttpError } from "../lib/errors";
+import { appFactory, createAppRoute } from "../lib/hono-factory";
+import { zodValidationHook } from "../lib/validator";
 
-authRoute.post('/link-token', async (c) => {
-  const body = await c.req.json()
-  const secret = c.env.SESSION_TOKEN_SECRET
-  const user = c.get('auth')
+const linkTokenRequestSchema = z.object({
+  sessionToken: z.unknown().optional(),
+  candidateUserId: z.unknown().optional(),
+  state: z.unknown().optional()
+});
 
-  const { sessionToken, candidateUserId, state } = body
+const auth0IdentitySchema = z.object({
+  user_id: z.string().min(1),
+  provider: z.string().min(1),
+  connection: z.string().min(1)
+});
 
-  if (!sessionToken || !candidateUserId || !state || !secret) {
-    throw new AppHttpError(400, 'BAD_REQUEST', 'Parámetros incompletos')
-  }
+const auth0LinkSessionPayloadSchema = z.object({
+  current_identity: auth0IdentitySchema,
+  candidate_identities: z.array(auth0IdentitySchema).default([])
+});
 
-  // 1. Verificar el sessionToken emitido por la Action de Auth0
-  let payload: any
-  try {
-    payload = await verify(sessionToken, secret, 'HS256')
-  } catch (e) {
-    throw new AppHttpError(400, 'BAD_REQUEST', 'Token de sesión inválido')
-  }
+export const authRoute = createAppRoute();
 
-  const { current_identity, candidate_identities } = payload
-  const selectedCandidate = (candidate_identities || []).find((c: any) => c.user_id === candidateUserId)
+const createLinkTokenHandlers = appFactory.createHandlers(
+  zValidator("json", linkTokenRequestSchema, zodValidationHook),
+  async (c) => {
+    const { sessionToken, candidateUserId, state } = c.req.valid("json");
+    const secret = c.env.SESSION_TOKEN_SECRET;
+    const user = c.get("auth");
 
-  if (!selectedCandidate || !current_identity) {
-    throw new AppHttpError(400, 'BAD_REQUEST', 'Datos de enlace no encontrados en la sesión')
-  }
+    if (
+      typeof sessionToken !== "string" ||
+      sessionToken.trim().length === 0 ||
+      typeof candidateUserId !== "string" ||
+      candidateUserId.trim().length === 0 ||
+      typeof state !== "string" ||
+      state.trim().length === 0 ||
+      !secret
+    ) {
+      throw new AppHttpError(400, "BAD_REQUEST", "Parámetros incompletos");
+    }
 
-  // 2. Seguridad: El usuario logueado en la PWA (vía Bearer) debe ser el candidato (DB)
-  if (user.userId !== candidateUserId) {
-    throw new AppHttpError(403, 'FORBIDDEN', 'No tienes permiso para enlazar esta cuenta.')
-  }
+    let verifiedPayload: unknown;
 
-  // 3. Generar el proof-token firmado para que Auth0 confíe en nosotros
-  const now = Math.floor(Date.now() / 1000)
-  const proofToken = await sign(
-    {
-      primary_identity: {
-        user_id: selectedCandidate.user_id,
-        provider: selectedCandidate.provider,
-        connection: selectedCandidate.connection,
+    try {
+      verifiedPayload = await verify(sessionToken, secret, "HS256");
+    } catch {
+      throw new AppHttpError(400, "BAD_REQUEST", "Token de sesión inválido");
+    }
+
+    const payload = auth0LinkSessionPayloadSchema.safeParse(verifiedPayload);
+    if (!payload.success) {
+      throw new AppHttpError(400, "BAD_REQUEST", "Datos de enlace no encontrados en la sesión");
+    }
+
+    const { current_identity, candidate_identities } = payload.data;
+    const selectedCandidate = candidate_identities.find((candidate) => candidate.user_id === candidateUserId);
+
+    if (!selectedCandidate) {
+      throw new AppHttpError(400, "BAD_REQUEST", "Datos de enlace no encontrados en la sesión");
+    }
+
+    if (user.userId !== candidateUserId) {
+      throw new AppHttpError(403, "FORBIDDEN", "No tienes permiso para enlazar esta cuenta.");
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const proofToken = await sign(
+      {
+        primary_identity: {
+          user_id: selectedCandidate.user_id,
+          provider: selectedCandidate.provider,
+          connection: selectedCandidate.connection
+        },
+        secondary_identity: {
+          user_id: current_identity.user_id,
+          provider: current_identity.provider,
+          connection: current_identity.connection
+        },
+        state,
+        iat: now,
+        exp: now + 300
       },
-      secondary_identity: {
-        user_id: current_identity.user_id,
-        provider: current_identity.provider,
-        connection: current_identity.connection,
-      },
-      state,
-      iat: now,
-      exp: now + 300,
-    },
-    secret,
-    'HS256'
-  )
+      secret,
+      "HS256"
+    );
 
-  return c.json({ ok: true, data: { proofToken } })
-})
+    return c.json({ ok: true, data: { proofToken } });
+  }
+);
+
+authRoute.post("/link-token", ...createLinkTokenHandlers);

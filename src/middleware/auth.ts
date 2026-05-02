@@ -33,6 +33,24 @@ const getBearerToken = (authorizationHeader: string | undefined): string | null 
   return token.length > 0 ? token : null;
 };
 
+const logAuthRejection = (
+  c: Parameters<AppMiddleware>[0],
+  reason: string,
+  detail?: string
+): void => {
+  console.warn(
+    JSON.stringify({
+      message: "Authentication rejected",
+      requestId: c.get("requestId"),
+      method: c.req.method,
+      path: c.req.path,
+      appEnv: c.env.APP_ENV ?? "unknown",
+      reason,
+      detail
+    })
+  );
+};
+
 export const requireAuth: AppMiddleware = async (c, next) => {
   if (c.req.method === "OPTIONS") {
     await next();
@@ -41,6 +59,7 @@ export const requireAuth: AppMiddleware = async (c, next) => {
 
   const token = getBearerToken(c.req.header("authorization"));
   if (!token) {
+    logAuthRejection(c, "missing_bearer_token");
     throw new AppHttpError(401, "UNAUTHENTICATED", "Se requiere token Bearer.");
   }
 
@@ -53,6 +72,7 @@ export const requireAuth: AppMiddleware = async (c, next) => {
     });
 
     if (typeof payload.sub !== "string" || payload.sub.trim().length === 0) {
+      logAuthRejection(c, "invalid_subject_claim");
       throw new AppHttpError(401, "UNAUTHENTICATED", "El token no incluye un subject válido.");
     }
 
@@ -67,6 +87,11 @@ export const requireAuth: AppMiddleware = async (c, next) => {
       throw error;
     }
 
+    logAuthRejection(
+      c,
+      "jwt_verification_failed",
+      error instanceof Error ? error.message : String(error)
+    );
     throw new AppHttpError(401, "UNAUTHENTICATED", "Token inválido o expirado.");
   }
 };

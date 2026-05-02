@@ -6,6 +6,7 @@ import { AppHttpError } from "./lib/errors";
 import { failure } from "./lib/responses";
 import { requireAuth } from "./middleware/auth";
 import { strictCors } from "./middleware/cors";
+import { attachRequestId } from "./middleware/request-id";
 import { basicRateLimit } from "./middleware/rate-limit";
 import { authRoute } from "./routes/auth";
 import { contributionsRoute } from "./routes/contributions";
@@ -15,6 +16,8 @@ import { summaryRoute } from "./routes/summary";
 import type { AppBindings, AppVariables } from "./types/app";
 
 const app = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
+
+app.use("*", attachRequestId);
 
 app.get("/health", (c) => {
   // Keep health response minimal to avoid leaking runtime configuration.
@@ -56,6 +59,7 @@ app.notFound((c) => {
 
 app.onError((error, c) => {
   const isProd = c.env.APP_ENV === "production";
+  const requestId = c.get("requestId");
 
   if (error instanceof AppHttpError) {
     return failure(c, error.status, error.apiError);
@@ -78,6 +82,7 @@ app.onError((error, c) => {
     console.error(
       JSON.stringify({
         message: "Unhandled error",
+        requestId,
         method: c.req.method,
         path: c.req.path,
         appEnv: c.env.APP_ENV ?? "unknown",
@@ -90,6 +95,7 @@ app.onError((error, c) => {
     console.error(
       JSON.stringify({
         message: "Unhandled error",
+        requestId,
         method: c.req.method,
         path: c.req.path,
         appEnv: c.env.APP_ENV ?? "unknown",

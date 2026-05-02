@@ -124,6 +124,19 @@ export const basicRateLimit: AppMiddleware = async (c, next) => {
   if (existing.count > maxRequests) {
     const retryAfterSeconds = Math.max(1, Math.ceil((existing.resetAt - now) / 1000));
     c.header("Retry-After", String(retryAfterSeconds));
+    console.warn(
+      JSON.stringify({
+        message: "Rate limit exceeded",
+        requestId: c.get("requestId"),
+        method: c.req.method,
+        path: c.req.path,
+        appEnv: c.env.APP_ENV ?? "unknown",
+        ip,
+        retryAfterSeconds,
+        windowMs,
+        maxRequests
+      })
+    );
 
     throw new AppHttpError(429, "RATE_LIMITED", "Demasiadas solicitudes. Intenta nuevamente más tarde.");
   }
