@@ -19,6 +19,7 @@ const listSettingsHandlers = appFactory.createHandlers(
   requirePermission(API_PERMISSIONS.settingsRead),
   async (c) => {
     const db = createDb(c.env.DCM_DB_BINDING);
+    const auth = c.get("auth");
 
     const rows = await withDbReadRetry(
       async () =>
@@ -36,7 +37,11 @@ const listSettingsHandlers = appFactory.createHandlers(
       { label: "settings.list" }
     );
 
-    return success(c, 200, { items: rows });
+    const visibleRows = auth.permissions.has(API_PERMISSIONS.auth0SyncWrite)
+      ? rows
+      : rows.filter((row) => row.key !== "auth0_auto_sync_enabled");
+
+    return success(c, 200, { items: visibleRows });
   }
 );
 
