@@ -169,8 +169,8 @@ exports.onExecutePostLogin = async (event, api) => {
     return applyStandardRbac(event, api, roles);
   }
 
-  // const pwaUrl = event.secrets.DCM_PWA_URL;
-  const pwaUrl = 'http://localhost:5173';
+  const pwaUrl = 'https://contrib-dcm.pages.dev';
+  //const pwaUrl = 'http://localhost:5173';
 
   if (!pwaUrl) {
     log('missing_pwa_url_secret');
@@ -190,10 +190,17 @@ exports.onExecutePostLogin = async (event, api) => {
       return applyStandardRbac(event, api, roles);
     }
 
+    const redirectState = event.transaction?.state;
+    if (!redirectState) {
+      log('missing_redirect_state', { user_id: event.user.user_id });
+      return applyStandardRbac(event, api, roles);
+    }
+
     const sessionToken = api.redirect.encodeToken({
       secret: event.secrets.SESSION_TOKEN_SECRET,
       expiresInSeconds: 300,
       payload: {
+        state: redirectState,
         current_identity: {
           user_id: event.user.user_id,
           provider: event.connection.strategy,
