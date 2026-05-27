@@ -3,6 +3,7 @@ import type { AppBindings } from "../types/app";
 
 export const DCM_MANAGED_APP_METADATA_KEY = "dcm_managed";
 export const DCM_PASSWORD_SETUP_PENDING_APP_METADATA_KEY = "dcm_password_setup_pending";
+export const ACCOUNT_LINKING_TIMESTAMP_APP_METADATA_KEY = "account_linking_timestamp";
 
 type Auth0TokenResponse = {
   access_token?: string;
@@ -36,6 +37,11 @@ export type Auth0UserRecord = {
   emailVerified: boolean;
   name: string | null;
   lastPasswordReset: string | null;
+  identities: Array<{
+    provider: string;
+    userId: string;
+    connection: string | null;
+  }>;
   appMetadata: Record<string, unknown>;
   isDcmManaged: boolean;
   isPrimaryDatabase: boolean;
@@ -76,6 +82,11 @@ const toAuth0UserRecord = (user: Auth0UserResponse): Auth0UserRecord => {
     emailVerified: user.email_verified === true,
     name: user.name ?? null,
     lastPasswordReset: user.last_password_reset ?? null,
+    identities: identities.map((identity) => ({
+      provider: identity.provider,
+      userId: identity.user_id,
+      connection: identity.connection ?? null
+    })),
     appMetadata,
     isDcmManaged: appMetadata[DCM_MANAGED_APP_METADATA_KEY] === true,
     isPrimaryDatabase: primaryIdentity?.provider === "auth0",
@@ -321,6 +332,103 @@ export class Auth0ManagementAPI {
         })
       }
     );
+  }
+
+  public static async markUserAsLinkingCompleted(userId: string, env: AppBindings): Promise<void> {
+    const user = await this.getUserById(userId, env);
+    if (!user) {
+      throw new AppHttpError(404, "AUTH0_USER_NOT_FOUND", "No se encontró el usuario en Auth0.");
+    }
+
+    await this.managementRequest(
+      env,
+      `/users/${encodeURIComponent(userId)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          app_metadata: {
+            ...user.appMetadata,
+            [DCM_MANAGED_APP_METADATA_KEY]: true,
+            [ACCOUNT_LINKING_TIMESTAMP_APP_METADATA_KEY]: new Date().toISOString()
+          }
+        })
+      }
+    );
+  }
+
+  public static async linkIdentityToPrimary(
+    params: {
+      primaryUserId: string;
+      secondaryProvider: string;
+      secondaryUserId: string;
+    },
+    env: AppBindings
+  ): Promise<Auth0UserRecord> {
+    const primaryUser = await this.getUserById(params.primaryUserId, env);
+    if (!primaryUser) {
+      throw new AppHttpError(404, "AUTH0_USER_NOT_FOUND", "No se encontró la cuenta primaria en Auth0.");
+    }
+
+    const alreadyLinked = primaryUser.identities.some(
+      (identity) => identity.provider === params.secondaryProvider && identity.userId === params.secondaryUserId
+    );
+
+    if (!alreadyLinked) {
+      const executeLinkRequest = async (token: string): Promise<Response> =>
+        fetch(buildManagementUrl(env, `/users/${encodeURIComponent(params.primaryUserId)}/identities`), {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            provider: params.secondaryProvider,
+            user_id: params.secondaryUserId
+          })
+        });
+
+      let response = await executeLinkRequest(await this.getAccessToken(env));
+
+      if (response.status === 401) {
+        this.invalidateCachedAccessToken(env);
+        response = await executeLinkRequest(await this.getAccessToken(env));
+      }
+
+      if (!response.ok && response.status !== 409) {
+        const detail = await readErrorText(response);
+        throw new AppHttpError(500, "AUTH0_MANAGEMENT_REQUEST_FAILED", `Auth0 respondió ${response.status}: ${detail}`);
+      }
+
+      const responseData = response.ok
+        ? ((await response.json()) as Array<{ provider?: string; user_id?: string; connection?: string }>)
+        : null;
+
+      const linkSucceeded = Array.isArray(responseData)
+        ? responseData.some(
+            (identity) => identity?.provider === params.secondaryProvider && identity.user_id === params.secondaryUserId
+          )
+        : false;
+
+      if (!linkSucceeded) {
+        const refreshedPrimary = await this.getUserById(params.primaryUserId, env);
+        const nowLinked = refreshedPrimary?.identities.some(
+          (identity) => identity.provider === params.secondaryProvider && identity.userId === params.secondaryUserId
+        );
+
+        if (!nowLinked) {
+          throw new AppHttpError(409, "AUTH0_LINK_NOT_PERSISTED", "Auth0 no confirmó el enlace de identidades.");
+        }
+      }
+    }
+
+    await this.markUserAsLinkingCompleted(params.primaryUserId, env);
+
+    const finalPrimary = await this.getUserById(params.primaryUserId, env);
+    if (!finalPrimary) {
+      throw new AppHttpError(404, "AUTH0_USER_NOT_FOUND", "No se encontró la cuenta primaria después del enlace.");
+    }
+
+    return finalPrimary;
   }
 
   public static async createDatabaseUser(email: string, name: string, env: AppBindings): Promise<Auth0UserRecord> {
