@@ -1,5 +1,4 @@
 const { AuthenticationClient } = require('auth0');
-const jwt = require('jsonwebtoken');
 
 const ACCOUNT_LINKING_TIMESTAMP_KEY = 'account_linking_timestamp';
 const DCM_MANAGED_APP_METADATA_KEY = 'dcm_managed';
@@ -190,23 +189,15 @@ exports.onExecutePostLogin = async (event, api) => {
       return applyStandardRbac(event, api, roles);
     }
 
-    const redirectState = event.transaction?.state;
-    if (!redirectState) {
-      log('missing_redirect_state', { user_id: event.user.user_id });
-      return applyStandardRbac(event, api, roles);
-    }
-
     const sessionToken = api.redirect.encodeToken({
       secret: event.secrets.SESSION_TOKEN_SECRET,
       expiresInSeconds: 300,
       payload: {
-        state: redirectState,
         current_identity: {
           user_id: event.user.user_id,
           provider: event.connection.strategy,
           connection: event.connection.name,
         },
-        continue_url: `https://${event.request.hostname}/continue`,
         candidate_identities: [candidate],
       },
     });
@@ -218,105 +209,5 @@ exports.onExecutePostLogin = async (event, api) => {
     const message = error instanceof Error ? error.message : String(error);
     log('post_login_failed', { message, user_id: event.user.user_id });
     applyStandardRbac(event, api, roles);
-  }
-};
-
-exports.onContinuePostLogin = async (event, api) => {
-  const proofToken = event.request.query?.proof_token;
-  if (!proofToken) {
-    return api.access.deny('Enlace cancelado o petición incompleta.');
-  }
-
-  try {
-    const sessionPayload = api.redirect.validateToken({
-      secret: event.secrets.SESSION_TOKEN_SECRET,
-      tokenParameterName: 'session_token',
-    });
-
-    const proofPayload = jwt.verify(proofToken, event.secrets.SESSION_TOKEN_SECRET);
-    const selectedCandidate = Array.isArray(sessionPayload.candidate_identities)
-      ? sessionPayload.candidate_identities.find((candidate) => candidate.user_id === proofPayload.primary_identity?.user_id)
-      : null;
-
-    if (!sessionPayload.current_identity?.user_id || !selectedCandidate) {
-      return api.access.deny('La sesión de enlace no es válida.');
-    }
-
-    if (proofPayload.state !== event.request.query?.state) {
-      return api.access.deny('El estado del enlace no coincide.');
-    }
-
-    if (proofPayload.secondary_identity?.user_id !== sessionPayload.current_identity.user_id) {
-      return api.access.deny('La identidad secundaria no coincide con la sesión de enlace.');
-    }
-
-    if (event.user.user_id !== proofPayload.secondary_identity.user_id) {
-      return api.access.deny('La cuenta que continúa el login no coincide con la identidad secundaria esperada.');
-    }
-
-    const token = await getManagementAccessToken(event, api);
-    const primaryIdentity = proofPayload.primary_identity;
-    const secondaryIdentity = proofPayload.secondary_identity;
-    const [, secondaryProviderUserId] = String(secondaryIdentity.user_id).split('|');
-
-    if (!secondaryProviderUserId) {
-      return api.access.deny('La identidad secundaria no es válida para Auth0.');
-    }
-
-    const linkResponse = /** @type {any} */ (await fetch(
-      `https://${event.secrets.AUTH0_DOMAIN}/api/v2/users/${encodeURIComponent(primaryIdentity.user_id)}/identities`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          provider: secondaryIdentity.provider,
-          user_id: secondaryProviderUserId,
-        }),
-      }
-    ));
-
-    if (!linkResponse.ok && linkResponse.status !== 409) {
-      let detail = linkResponse.statusText;
-      try {
-        const data = await linkResponse.json();
-        detail = data.message || data.error || detail;
-      } catch (e) {
-        // ignore
-      }
-      throw new Error(`No se pudo enlazar la cuenta: ${linkResponse.status} ${detail}`);
-    }
-
-    const primaryUser = await managementFetchJson(
-      event,
-      token,
-      `/users/${encodeURIComponent(primaryIdentity.user_id)}`
-    );
-    const mergedAppMetadata = {
-      ...(primaryUser?.app_metadata || {}),
-      [ACCOUNT_LINKING_TIMESTAMP_KEY]: new Date().toISOString(),
-      [DCM_MANAGED_APP_METADATA_KEY]: true,
-    };
-
-    await managementFetchJson(event, token, `/users/${encodeURIComponent(primaryIdentity.user_id)}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ app_metadata: mergedAppMetadata }),
-    });
-
-    api.authentication.setPrimaryUser(primaryIdentity.user_id);
-
-    const roles = await getRolesForUser(event, token, primaryIdentity.user_id);
-    if (roles.length === 0) {
-      return api.access.deny('Acceso no autorizado: sin roles.');
-    }
-
-    api.accessToken.setCustomClaim(`${NAMESPACE}/roles`, roles);
-    api.idToken.setCustomClaim(`${NAMESPACE}/roles`, roles);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    log('continue_failed', { message, user_id: event.user.user_id });
-    api.access.deny('Error al procesar el enlace. Por favor, reintenta el login.');
   }
 };

@@ -48,7 +48,7 @@ Protected routes use middleware that validates the presence of the required perm
 ### Identity and linking
 
 - The API validates JWTs and lifecycle operations independently.
-- Account linking remains explicit and is handled through the Auth0 login Action plus `POST /api/auth/link-token`.
+- Account linking remains explicit and is handled through the Auth0 login Action plus `POST /api/auth/link-account`.
 - The backend does not auto-link accounts just because emails match.
 
 ---
