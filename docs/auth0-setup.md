@@ -42,6 +42,12 @@
    - **Post-change-password Action Name:** `dcm-clear-password-setup-pending`
    - **Post-change-password Action Configuration:** Bind the versioned `dcm-clear-password-setup-pending` Action with `AUTH0_DOMAIN`, `M2M_CLIENT_ID`, and `M2M_CLIENT_SECRET` so the temporary onboarding flag is removed immediately after the user defines their first password.
 
+   Operational note for `dcm_managed`:
+   - `app_metadata.dcm_managed = true` marks the canonical primary DCM account.
+   - It should be present on the `auth0|...` identity managed by DCM.
+   - Do not use it as a workaround on separate `google-oauth2|...` accounts.
+   - Legacy DCM users without this flag should be corrected by backfill before analyzing linking failures.
+
 6. Contributor lifecycle sync:
    - `AUTH0_VIEWER_ROLE_ID` must be configured in the Worker runtime.
    - `AUTH0_SPA_CLIENT_ID` must be configured in the Worker runtime and must point to the production SPA Auth0 application used for interactive login.
